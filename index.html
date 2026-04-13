@@ -175,6 +175,14 @@
       <div class="key-hint">Obtenha gratuitamente em aistudio.google.com/apikey → Create API key</div>
       <button class="btn btn-blue" onclick="saveKey()">✓ Salvar e começar</button>
     </div>
+    <div id="bookmark-box" class="card hidden" style="margin-top:0">
+      <div class="card-title">📌 Salve este link nos favoritos do celular</div>
+      <div class="warn" style="margin-bottom:12px">
+        Para não precisar digitar a chave de novo no celular, salve o link abaixo como favorito. Sempre que abrir por ele, o app já entra direto.
+      </div>
+      <div style="background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:12px;font-size:12px;word-break:break-all;font-family:monospace;margin-bottom:12px" id="bookmark-url"></div>
+      <button class="btn btn-blue" onclick="copyBookmark()">📋 Copiar link para favorito</button>
+    </div>
   </div>
 
   <!-- ═══ PASSO 1 — Configuração ═══ -->
@@ -349,6 +357,11 @@ function rubricaLabel(r) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Chave pode vir do hash da URL (favorito salvo) ou do localStorage
+  const hashKey = window.location.hash.slice(1);
+  if (hashKey && hashKey.startsWith('AIza')) {
+    localStorage.setItem('gemini_key', hashKey);
+  }
   if (localStorage.getItem('gemini_key')) {
     document.getElementById('s0').classList.remove('show');
     goTo(1);
@@ -359,8 +372,19 @@ function saveKey() {
   const k = document.getElementById('api-key-input').value.trim();
   if (!k.startsWith('AIza')) { alert('A chave deve começar com "AIza...". Verifique e tente novamente.'); return; }
   localStorage.setItem('gemini_key', k);
+  // Embutir a chave na URL para que o favorito do celular sempre funcione
+  history.replaceState(null, '', '#' + k);
+  // Mostrar o link para salvar nos favoritos
+  const url = window.location.href;
+  document.getElementById('bookmark-url').textContent = url;
+  document.getElementById('bookmark-box').classList.remove('hidden');
   document.getElementById('s0').classList.remove('show');
   goTo(1);
+}
+
+function copyBookmark() {
+  const url = document.getElementById('bookmark-url').textContent;
+  navigator.clipboard.writeText(url).then(() => alert('Link copiado! Cole no navegador do celular e adicione aos favoritos.'));
 }
 
 function changeKey() {
