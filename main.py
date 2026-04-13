@@ -1,13 +1,13 @@
-import base64
+import io
 import logging
 import os
-import re
 
-import anthropic
+import google.generativeai as genai
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from PIL import Image
 
 load_dotenv()
 
@@ -17,26 +17,19 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Corretor de Redações")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-MODEL = "claude-sonnet-4-6"
+MODEL = "gemini-2.0-flash"
 MAX_IMAGE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
-def get_client() -> anthropic.Anthropic:
-    key = os.getenv("ANTHROPIC_API_KEY")
+def get_model() -> genai.GenerativeModel:
+    key = os.getenv("GOOGLE_API_KEY")
     if not key:
         raise HTTPException(
             status_code=500,
-            detail="Chave de API não configurada. Configure ANTHROPIC_API_KEY no servidor.",
+            detail="Chave de API não configurada. Configure GOOGLE_API_KEY no servidor.",
         )
-    return anthropic.Anthropic(api_key=key)
-
-
-def get_media_type(filename: str, content_type: str) -> str:
-    if content_type and content_type.startswith("image/"):
-        return content_type
-    ext = (filename.lower().rsplit(".", 1)[-1]) if "." in filename else ""
-    return {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
-            "webp": "image/webp", "gif": "image/gif"}.get(ext, "image/jpeg")
+    genai.configure(api_key=key)
+    return genai.GenerativeModel(MODEL)
 
 
 def rubrica_label(rubrica: str) -> str:
@@ -71,8 +64,10 @@ async def analisar_imagem(
     if len(foto_bytes) > MAX_IMAGE_BYTES:
         raise HTTPException(status_code=400, detail="Imagem muito grande. Máximo: 20 MB.")
 
-    foto_b64 = base64.standard_b64encode(foto_bytes).decode("utf-8")
-    media_type = get_media_type(foto.filename or "", foto.content_type or "")
+    try:
+        img = Image.open(io.BytesIO(foto_bytes))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Arquivo de imagem inválido ou corrompido.")
 
     prompt = f"""Você é um corretor especializado em redações com profundo conhecimento da rubrica oficial do INEP/MEC.
 
@@ -103,7 +98,7 @@ Maiúsculas e minúsculas:
 
 Marcadores de erro visíveis:
 - Palavras com grafia suspeita (liste com localização aproximada)
-- Pontuação ambígua (vírgula que pode ser ponto, etc.)
+- Pontuação ambígua
 - Palavras de leitura incerta
 
 ## ETAPA 3 — Transcrição Guiada
@@ -114,7 +109,6 @@ Regras invioláveis:
 - Use [?] para palavras de leitura incerta
 - Use [RASURA] para trechos ilegíveis
 - Preserve a divisão em parágrafos do original
-- Preserve erros de translineação se houver
 
 ## FORMATO DE SAÍDA OBRIGATÓRIO
 
@@ -147,25 +141,12 @@ MAPA DE EVIDÊNCIAS VISUAIS
 </TRANSCRICAO>"""
 
     try:
-        client = get_client()
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=3000,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {"type": "base64", "media_type": media_type, "data": foto_b64},
-                    },
-                    {"type": "text", "text": prompt},
-                ],
-            }],
-        )
-        return {"resultado": response.content[0].text}
-    except anthropic.APIError as e:
-        logger.error("Anthropic API error: %s", e)
-        raise HTTPException(status_code=502, detail=f"Erro na API do Claude: {e}")
+        model = get_model()
+        response = model.generate_content([prompt, img])
+        return {"resultado": response.text}
+    except Exception as e:
+        logger.error("Gemini API error: %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro na API do Gemini: {e}")
 
 
 @app.post("/api/analisar-competencias")
@@ -222,10 +203,8 @@ Verifique primeiro as condições de DESCLASSIFICAÇÃO:
 - Mais de 30 linhas → desclassificação
 - Título presente → desclassificação
 - Identificação no corpo do texto → desclassificação
-- Plágio → desclassificação
 
 Verifique TANGENCIAMENTO: o texto trata do assunto geral mas não responde ao tema específico.
-→ Tema: "Democracia nas redes sociais: como construir um debate saudável"
 
 C1 — Domínio da norma escrita: 0 = não demonstra | 1 = parcialmente | 2 = plenamente
 C2 — Compreensão do tema e do gênero: 0 = fuga/fora do gênero | 1 = tangencia | 2 = compreende e desenvolve
@@ -287,16 +266,12 @@ PRIORIDADES DE FEEDBACK PARA A ALUNA
 Cite trechos reais do texto para fundamentar cada avaliação."""
 
     try:
-        client = get_client()
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=4000,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return {"resultado": response.content[0].text}
-    except anthropic.APIError as e:
-        logger.error("Anthropic API error: %s", e)
-        raise HTTPException(status_code=502, detail=f"Erro na API do Claude: {e}")
+        model = get_model()
+        response = model.generate_content(prompt)
+        return {"resultado": response.text}
+    except Exception as e:
+        logger.error("Gemini API error: %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro na API do Gemini: {e}")
 
 
 @app.post("/api/gerar-feedback")
@@ -316,7 +291,7 @@ Diretrizes da mensagem:
 - Tom de professora que acredita no potencial da aluna
 - Máximo de 180 palavras
 - Termine com uma frase de incentivo para a próxima redação
-- Não use asteriscos, não use marcadores como "•" ou "-", escreva em parágrafos corridos
+- Não use asteriscos nem marcadores como "•" ou "-", escreva em parágrafos corridos
 
 RELATÓRIO TÉCNICO:
 {relatorio}
@@ -324,13 +299,9 @@ RELATÓRIO TÉCNICO:
 Escreva apenas a mensagem, sem título nem explicações adicionais."""
 
     try:
-        client = get_client()
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return {"feedback": response.content[0].text}
-    except anthropic.APIError as e:
-        logger.error("Anthropic API error: %s", e)
-        raise HTTPException(status_code=502, detail=f"Erro na API do Claude: {e}")
+        model = get_model()
+        response = model.generate_content(prompt)
+        return {"feedback": response.text}
+    except Exception as e:
+        logger.error("Gemini API error: %s", e)
+        raise HTTPException(status_code=502, detail=f"Erro na API do Gemini: {e}")
