@@ -332,10 +332,16 @@ async function callGemini(parts, tentativa = 1) {
     // Limite por minuto — aguardar e tentar de novo automaticamente
     if (res.status === 429 && tentativa <= 3) {
       const match = msg.match(/retry in (\d+(?:\.\d+)?)/i);
-      const espera = match ? Math.ceil(parseFloat(match[1])) + 3 : 20;
-      document.getElementById('overlay-sub').textContent =
-        `Limite temporário atingido. Tentando novamente em ${espera} segundos... (tentativa ${tentativa}/3)`;
-      await new Promise(r => setTimeout(r, espera * 1000));
+      const espera = match ? Math.ceil(parseFloat(match[1])) + 3 : 25;
+      // Contagem regressiva visível
+      for (let s = espera; s > 0; s--) {
+        document.getElementById('overlay-msg').textContent = '⏳ Aguardando limite da API...';
+        document.getElementById('overlay-sub').textContent =
+          `Tentativa ${tentativa} de 3 — retomando em ${s}s`;
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      document.getElementById('overlay-msg').textContent = 'Analisando a imagem…';
+      document.getElementById('overlay-sub').textContent = `Retomando análise (tentativa ${tentativa + 1} de 3)…`;
       return callGemini(parts, tentativa + 1);
     }
     if (res.status === 429) throw new Error('Limite de uso atingido. Aguarde alguns minutos e tente novamente.');
@@ -346,11 +352,26 @@ async function callGemini(parts, tentativa = 1) {
 }
 
 async function imageToBase64(file) {
+  // Comprime a imagem antes de enviar: reduz para max 1400px e qualidade 0.82
+  // Isso reduz de ~8MB para ~200KB, evitando estourar a cota de tokens do Gemini
   return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = e => resolve(e.target.result.split(',')[1]);
-    r.onerror = reject;
-    r.readAsDataURL(file);
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1400;
+      let w = img.width, h = img.height;
+      if (w > MAX || h > MAX) {
+        if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+        else         { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Erro ao processar imagem.')); };
+    img.src = url;
   });
 }
 
