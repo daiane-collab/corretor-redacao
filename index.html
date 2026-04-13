@@ -329,22 +329,18 @@ async function callGemini(parts, tentativa = 1) {
   const data = await res.json();
   if (!res.ok) {
     const msg = data.error?.message || 'Erro na API do Gemini';
-    // Limite por minuto — aguardar e tentar de novo automaticamente
-    if (res.status === 429 && tentativa <= 3) {
-      const match = msg.match(/retry in (\d+(?:\.\d+)?)/i);
-      const espera = match ? Math.ceil(parseFloat(match[1])) + 3 : 25;
-      // Contagem regressiva visível
-      for (let s = espera; s > 0; s--) {
-        document.getElementById('overlay-msg').textContent = '⏳ Aguardando limite da API...';
-        document.getElementById('overlay-sub').textContent =
-          `Tentativa ${tentativa} de 3 — retomando em ${s}s`;
+    // Primeira tentativa: espera 30s e tenta mais uma vez
+    if (res.status === 429 && tentativa === 1) {
+      for (let s = 30; s > 0; s--) {
+        document.getElementById('overlay-msg').textContent = 'Serviço ocupado momentaneamente';
+        document.getElementById('overlay-sub').textContent = `Tentando novamente em ${s}s…`;
         await new Promise(r => setTimeout(r, 1000));
       }
       document.getElementById('overlay-msg').textContent = 'Analisando a imagem…';
-      document.getElementById('overlay-sub').textContent = `Retomando análise (tentativa ${tentativa + 1} de 3)…`;
-      return callGemini(parts, tentativa + 1);
+      document.getElementById('overlay-sub').textContent = 'Aguarde, isso leva cerca de 20–40 segundos.';
+      return callGemini(parts, 2);
     }
-    if (res.status === 429) throw new Error('Limite de uso atingido. Aguarde alguns minutos e tente novamente.');
+    if (res.status === 429) throw new Error('O serviço está temporariamente ocupado. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
     if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
     throw new Error(msg);
   }
@@ -513,7 +509,7 @@ async function step1Submit(){
   showLoad('Analisando a imagem…','O Gemini está lendo a redação. Isso leva cerca de 20–40 segundos.');
   try {
     const b64=await imageToBase64(S.foto);
-    const mimeType=S.foto.type||'image/jpeg';
+    const mimeType='image/jpeg'; // canvas.toDataURL sempre gera JPEG após compressão
     const prompt=`Você é um corretor especializado em redações com profundo conhecimento da rubrica oficial do INEP/MEC.
 
 Esta é uma foto de uma redação manuscrita. Execute as Etapas 1 e 3 do fluxo de correção.
