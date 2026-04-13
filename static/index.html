@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Corretor de Redações</title>
+  <meta name="theme-color" content="#2563EB">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue: #2563EB;
+      --blue-dark: #1d4ed8;
+      --blue-light: #eff6ff;
+      --green: #16a34a;
+      --green-dark: #15803d;
+      --whatsapp: #25D366;
+      --whatsapp-dark: #128C7E;
+      --red: #dc2626;
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      max-width: 640px;
+      margin: 0 auto;
+      padding-bottom: 40px;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .header {
+      background: var(--blue);
+      color: white;
+      padding: 16px 20px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.3);
+    }
+    .header h1 { font-size: 18px; font-weight: 700; margin-bottom: 14px; }
+
+    .steps { display: flex; align-items: center; }
+    .step { display: flex; align-items: center; flex: 1; }
+    .step-dot {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255,255,255,0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: white; flex-shrink: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+    .step.active .step-dot  { background: white; color: var(--blue); }
+    .step.done   .step-dot  { background: rgba(255,255,255,0.6); color: var(--blue); }
+    .step-label {
+      font-size: 11px; color: rgba(255,255,255,0.75); margin-left: 6px;
+      white-space: nowrap;
+    }
+    .step.active .step-label { color: white; font-weight: 600; }
+    .step-line { flex: 1; height: 2px; background: rgba(255,255,255,0.25); margin: 0 8px; }
+
+    /* ── Layout ─────────────────────────────── */
+    .main { padding: 20px 16px 0; }
+
+    /* ── Card ───────────────────────────────── */
+    .card {
+      background: var(--card); border-radius: var(--radius);
+      padding: 20px; margin-bottom: 16px; box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 16px;
+    }
+
+    /* ── Form ───────────────────────────────── */
+    .field-label {
+      display: block; font-size: 14px; font-weight: 600;
+      color: var(--text); margin-bottom: 6px;
+    }
+    input[type="text"], input[type="tel"], select, textarea {
+      width: 100%; padding: 13px 14px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-size: 16px; color: var(--text); background: white;
+      -webkit-appearance: none; appearance: none;
+      transition: border-color 0.2s; margin-bottom: 16px;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--blue);
+    }
+    textarea {
+      resize: vertical; min-height: 220px;
+      font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.65;
+    }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 12px center;
+      padding-right: 40px;
+    }
+
+    /* ── Radio ──────────────────────────────── */
+    .radio-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .radio-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 13px 14px; border: 1.5px solid var(--border);
+      border-radius: 8px; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .radio-option:has(input:checked) { border-color: var(--blue); background: var(--blue-light); }
+    .radio-option input { display: none; }
+    .radio-dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s;
+    }
+    .radio-option:has(input:checked) .radio-dot { border-color: var(--blue); }
+    .radio-dot::after {
+      content: ''; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--blue);
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .radio-option:has(input:checked) .radio-dot::after { opacity: 1; }
+    .radio-text { font-size: 15px; line-height: 1.3; }
+    .radio-text small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    /* ── Tabs ───────────────────────────────── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; padding: 10px; border: 1.5px solid var(--border);
+      border-radius: 8px; background: white; font-size: 14px; font-weight: 600;
+      color: var(--muted); cursor: pointer; text-align: center;
+      transition: all 0.2s;
+    }
+    .tab.active { border-color: var(--blue); color: var(--blue); background: var(--blue-light); }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Photo upload ───────────────────────── */
+    .photo-drop {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 32px 20px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s; margin-bottom: 16px;
+    }
+    .photo-drop:hover, .photo-drop.has-file { border-color: var(--blue); background: var(--blue-light); }
+    .photo-drop-icon { font-size: 40px; margin-bottom: 8px; }
+    .photo-drop-text { font-size: 15px; color: var(--muted); font-weight: 500; }
+    .photo-drop-hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    #foto-input { display: none; }
+    #csv-input  { display: none; }
+
+    .photo-preview { margin-bottom: 16px; display: none; }
+    .photo-preview img {
+      width: 100%; max-height: 280px; object-fit: contain;
+      border-radius: 8px; border: 1.5px solid var(--border);
+    }
+    .photo-preview-caption { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; }
+
+    /* ── Buttons ────────────────────────────── */
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 16px; border-radius: 10px; border: none;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      text-decoration: none; margin-bottom: 12px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-blue   { background: var(--blue);      color: white; }
+    .btn-blue:hover:not(:disabled) { background: var(--blue-dark); }
+
+    .btn-ghost  { background: white; color: var(--text); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { background: var(--bg); }
+
+    .btn-green  { background: var(--green);     color: white; }
+    .btn-green:hover:not(:disabled) { background: var(--green-dark); }
+
+    .btn-wa     { background: var(--whatsapp);  color: white; font-size: 17px; }
+    .btn-wa:hover { background: var(--whatsapp-dark); }
+
+    .btn-row { display: flex; gap: 12px; }
+    .btn-row .btn { flex: 1; margin-bottom: 0; }
+
+    /* ── Analysis box ───────────────────────── */
+    .analysis-box {
+      background: #f8fafc; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 16px; font-family: 'Courier New', monospace;
+      font-size: 13px; line-height: 1.7; white-space: pre-wrap;
+      word-break: break-word; max-height: 420px; overflow-y: auto;
+      margin-bottom: 12px;
+    }
+    .copy-btn {
+      font-size: 12px; color: var(--muted); background: none; border: none;
+      cursor: pointer; padding: 4px 8px; border-radius: 4px;
+      transition: background 0.2s; margin-bottom: 16px;
+    }
+    .copy-btn:hover { background: var(--border); }
+    .copy-btn.copied { color: var(--green); }
+
+    /* ── Callouts ───────────────────────────── */
+    .info   { background: var(--blue-light); border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #1e40af; margin-bottom: 16px; }
+    .warn   { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #92400e; margin-bottom: 16px; }
+    .success{ background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #166534; margin-bottom: 16px; }
+
+    .error-banner {
+      background: #fef2f2; border: 1.5px solid #fecaca;
+      border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; display: none;
+    }
+    .error-banner.show { display: block; }
+    .error-title { font-weight: 700; color: var(--red); margin-bottom: 4px; font-size: 14px; }
+    .error-text  { color: #991b1b; font-size: 13px; }
+
+    /* ── Loading overlay ────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.65);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 200;
+    }
+    .overlay.show { display: flex; }
+    .overlay-card {
+      background: white; border-radius: 16px;
+      padding: 36px 28px; text-align: center; max-width: 300px; width: 90%;
+    }
+    .spinner {
+      width: 48px; height: 48px; border: 4px solid #e2e8f0;
+      border-top-color: var(--blue); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 18px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .overlay-msg { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .overlay-sub { font-size: 13px; color: var(--muted); }
+
+    /* ── Step sections ──────────────────────── */
+    .section { display: none; }
+    .section.show { display: block; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Loading Overlay ───────────────────────────────────────────── -->
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="spinner"></div>
+    <div class="overlay-msg" id="overlay-msg">Processando...</div>
+    <div class="overlay-sub" id="overlay-sub">Isso pode levar até 40 segundos</div>
+  </div>
+</div>
+
+<!-- ─── Header ────────────────────────────────────────────────────── -->
+<div class="header">
+  <h1>📝 Corretor de Redações</h1>
+  <div class="steps">
+    <div class="step active" id="ind-1">
+      <div class="step-dot" id="dot-1">1</div>
+      <span class="step-label">Configurar</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="ind-2">
+      <div class="step-dot" id="dot-2">2</div>
+      <span class="step-label">Revisar</span>
+    </div>
+    <div class="step-line"></div>
+    <div class="step" id="ind-3">
+      <div class="step-dot" id="dot-3">3</div>
+      <span class="step-label">Feedback</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       PASSO 1 — Configuração
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="section show" id="s1">
+
+    <div class="error-banner" id="err1"><div class="error-title">⚠️ Atenção</div><div class="error-text" id="err1-text"></div></div>
+
+    <!-- Aluna -->
+    <div class="card">
+      <div class="card-title">👩‍🎓 Aluna</div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('lista')">Lista (CSV)</button>
+        <button class="tab"        onclick="switchTab('manual')">Digitar</button>
+      </div>
+
+      <!-- Panel: lista -->
+      <div class="panel active" id="panel-lista">
+        <div class="photo-drop" style="padding:20px" onclick="document.getElementById('csv-input').click()">
+          <div style="font-size:28px;margin-bottom:6px">📋</div>
+          <div style="font-size:14px;font-weight:600;color:#1e293b">Carregar lista de alunas</div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px">Arquivo CSV: nome,telefone</div>
+        </div>
+        <input type="file" id="csv-input" accept=".csv,text/csv" onchange="loadCsv(this)">
+        <div id="csv-info" style="font-size:13px;color:var(--muted);margin-bottom:12px"></div>
+        <div id="select-wrap" class="hidden">
+          <label class="field-label">Selecionar aluna:</label>
+          <select id="student-select" onchange="pickStudent(this.value)">
+            <option value="">— Selecione —</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Panel: manual -->
+      <div class="panel" id="panel-manual">
+        <label class="field-label">Nome da aluna:</label>
+        <input type="text" id="m-nome" placeholder="Ex: Maria Silva" oninput="updateManual()">
+        <label class="field-label">Telefone (DDD + número, sem espaços):</label>
+        <input type="tel" id="m-tel" placeholder="Ex: 82999998888" oninput="updateManual()">
+        <div style="font-size:12px;color:var(--muted);margin-top:-12px;margin-bottom:16px">
+          Inclua o DDD. Exemplo: 82999998888 (WhatsApp adicionará o +55 automaticamente)
+        </div>
+      </div>
+
+      <div id="student-badge" class="success hidden">
+        ✓ <strong id="badge-nome"></strong> — <span id="badge-tel"></span>
+      </div>
+    </div>
+
+    <!-- Redação -->
+    <div class="card">
+      <div class="card-title">📄 Redação</div>
+      <label class="field-label">Tema da redação:</label>
+      <input type="text" id="tema" placeholder="Ex: Democracia nas redes sociais">
+
+      <label class="field-label">Rubrica de avaliação:</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="rubrica" value="enem" checked>
+          <div class="radio-dot"></div>
+          <div class="radio-text">ENEM<small>0–200 por competência · Total 1000 pts</small></div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="rubrica" value="jovem_senador">
+          <div class="radio-dot"></div>
+          <div class="radio-text">Jovem Senador 2026<small>0–2 por competência · Total 10 pts · Mín. 20 linhas</small></div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="rubrica" value="outra">
+          <div class="radio-dot"></div>
+          <div class="radio-text">Outra / Geral<small>Análise qualitativa sem rubrica específica</small></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Foto -->
+    <div class="card">
+      <div class="card-title">📷 Foto da Redação</div>
+      <div class="photo-drop" id="photo-drop" onclick="document.getElementById('foto-input').click()">
+        <div class="photo-drop-icon">📸</div>
+        <div class="photo-drop-text">Tirar foto ou escolher da galeria</div>
+        <div class="photo-drop-hint">Toque para abrir</div>
+      </div>
+      <input type="file" id="foto-input" accept="image/*" onchange="previewFoto(this)">
+      <div class="photo-preview" id="photo-preview">
+        <img id="preview-img" src="" alt="Pré-visualização">
+        <div class="photo-preview-caption">Foto carregada ✓ — toque na área acima para trocar</div>
+      </div>
+    </div>
+
+    <button class="btn btn-blue" onclick="step1Submit()">
+      🔍 Analisar Imagem e Transcrever
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       PASSO 2 — Revisão
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s2">
+
+    <div class="error-banner" id="err2"><div class="error-title">⚠️ Atenção</div><div class="error-text" id="err2-text"></div></div>
+
+    <div class="info">
+      Revise o mapa visual e a transcrição. Edite a transcrição se necessário — ela é a base para a análise das competências.
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗺️ Mapa de Evidências Visuais</div>
+      <div class="analysis-box" id="mapa-box"></div>
+      <button class="copy-btn" onclick="copyText('mapa-box', this)">📋 Copiar mapa</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 Transcrição — edite se necessário</div>
+      <textarea id="trans-edit" placeholder="Transcrição do texto..."></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goTo(1)">← Voltar</button>
+      <button class="btn btn-blue"  onclick="step2Submit()">Analisar Competências →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       PASSO 3 — Análise + Feedback
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="section" id="s3">
+
+    <div class="error-banner" id="err3"><div class="error-title">⚠️ Atenção</div><div class="error-text" id="err3-text"></div></div>
+
+    <div class="card">
+      <div class="card-title">📊 Análise das Competências</div>
+      <div class="analysis-box" id="analise-box"></div>
+      <button class="copy-btn" onclick="copyText('analise-box', this)">📋 Copiar análise completa</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💬 Feedback para a Aluna</div>
+
+      <div id="fb-generate">
+        <div class="info">Gere uma mensagem simplificada e encorajadora para enviar à aluna via WhatsApp.</div>
+        <button class="btn btn-green" onclick="generateFeedback()">✨ Gerar Feedback</button>
+      </div>
+
+      <div id="fb-result" class="hidden">
+        <label class="field-label">Mensagem (edite se quiser):</label>
+        <textarea id="fb-text" style="font-family:inherit;font-size:15px;min-height:180px"></textarea>
+
+        <div id="wa-section">
+          <div class="success" id="wa-badge">
+            📱 Para: <strong id="wa-nome"></strong> — <span id="wa-tel-fmt"></span>
+          </div>
+          <a class="btn btn-wa" id="btn-wa" href="#" target="_blank" onclick="prepareWa(event)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            Enviar via WhatsApp
+          </a>
+          <button class="btn btn-green" style="margin-top:0" onclick="regenerateFeedback()">🔄 Regenerar Feedback</button>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider">
+    <button class="btn btn-ghost" onclick="novaCorrecao()">↩ Nova Correção</button>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const S = {
+  students: [],
+  student: null,   // {nome, telefone}
+  tab: 'lista',
+  foto: null,
+  tema: '',
+  rubrica: 'enem',
+  mapa: '',
+  trans: '',
+  analise: ''
+};
+
+// ─── Tabs (student panel) ─────────────────────────────────────────────────────
+function switchTab(t) {
+  S.tab = t;
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (i === 0 && t === 'lista') || (i === 1 && t === 'manual'));
+  });
+  document.getElementById('panel-lista').classList.toggle('active', t === 'lista');
+  document.getElementById('panel-manual').classList.toggle('active', t === 'manual');
+  if (t === 'manual') updateManual();
+  else if (document.getElementById('student-select').value) pickStudent(document.getElementById('student-select').value);
+}
+
+// ─── CSV ──────────────────────────────────────────────────────────────────────
+function loadCsv(input) {
+  const f = input.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const rows = e.target.result.trim().split('\n');
+    const start = rows[0].toLowerCase().includes('nome') ? 1 : 0;
+    S.students = [];
+    for (let i = start; i < rows.length; i++) {
+      const p = rows[i].split(',');
+      if (p.length >= 2) {
+        const nome = p[0].trim().replace(/^"|"$/g,'');
+        const tel  = p[1].trim().replace(/^"|"$/g,'').replace(/\D/g,'');
+        if (nome && tel) S.students.push({ nome, telefone: tel });
+      }
+    }
+    const info = document.getElementById('csv-info');
+    if (!S.students.length) { info.textContent = '⚠️ Nenhuma aluna encontrada. Verifique o formato.'; return; }
+    info.textContent = `✓ ${S.students.length} aluna(s) carregada(s)`;
+    const sel = document.getElementById('student-select');
+    sel.innerHTML = '<option value="">— Selecione —</option>';
+    S.students.forEach((s, i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = s.nome; sel.appendChild(o);
+    });
+    document.getElementById('select-wrap').classList.remove('hidden');
+    S.student = null;
+    badge(null);
+  };
+  r.readAsText(f, 'UTF-8');
+}
+
+function pickStudent(idx) {
+  if (idx === '') { S.student = null; badge(null); return; }
+  S.student = S.students[+idx];
+  badge(S.student);
+}
+
+function updateManual() {
+  const nome = document.getElementById('m-nome').value.trim();
+  const tel  = document.getElementById('m-tel').value.replace(/\D/g,'');
+  if (nome || tel) { S.student = { nome: nome||'Aluna', telefone: tel }; badge(S.student); }
+  else             { S.student = null; badge(null); }
+}
+
+function badge(s) {
+  const el = document.getElementById('student-badge');
+  if (!s) { el.classList.add('hidden'); return; }
+  document.getElementById('badge-nome').textContent = s.nome;
+  document.getElementById('badge-tel').textContent  = fmtTel(s.telefone);
+  el.classList.remove('hidden');
+}
+
+function fmtTel(t) {
+  t = (t||'').replace(/\D/g,'');
+  if (t.length === 11) return `(${t.slice(0,2)}) ${t.slice(2,7)}-${t.slice(7)}`;
+  if (t.length === 10) return `(${t.slice(0,2)}) ${t.slice(2,6)}-${t.slice(6)}`;
+  return t;
+}
+
+function waTel(t) {
+  t = (t||'').replace(/\D/g,'');
+  return t.startsWith('55') && t.length >= 12 ? t : '55' + t;
+}
+
+// ─── Photo ────────────────────────────────────────────────────────────────────
+function previewFoto(input) {
+  const f = input.files[0];
+  if (!f) return;
+  S.foto = f;
+  const r = new FileReader();
+  r.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('photo-preview').style.display = 'block';
+    const drop = document.getElementById('photo-drop');
+    drop.classList.add('has-file');
+    drop.querySelector('.photo-drop-text').textContent = 'Foto carregada ✓';
+    drop.querySelector('.photo-drop-hint').textContent = 'Toque para trocar';
+  };
+  r.readAsDataURL(f);
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function goTo(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById(`s${i}`).classList.toggle('show', i===n);
+    const ind = document.getElementById(`ind-${i}`);
+    ind.classList.remove('active','done');
+    if (i===n) ind.classList.add('active');
+    else if (i<n) { ind.classList.add('done'); document.getElementById(`dot-${i}`).textContent='✓'; }
+    else document.getElementById(`dot-${i}`).textContent=i;
+  });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ─── Loading ──────────────────────────────────────────────────────────────────
+function showLoad(msg, sub) {
+  document.getElementById('overlay-msg').textContent = msg||'Processando...';
+  document.getElementById('overlay-sub').textContent = sub||'Aguarde...';
+  document.getElementById('overlay').classList.add('show');
+}
+function hideLoad() { document.getElementById('overlay').classList.remove('show'); }
+
+// ─── Errors ───────────────────────────────────────────────────────────────────
+function showErr(n, msg) {
+  const b = document.getElementById(`err${n}`);
+  document.getElementById(`err${n}-text`).textContent = msg;
+  b.classList.add('show');
+  b.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function hideErr(n) { document.getElementById(`err${n}`).classList.remove('show'); }
+
+// ─── Copy helper ─────────────────────────────────────────────────────────────
+function copyText(boxId, btn) {
+  const text = document.getElementById(boxId).textContent || document.getElementById(boxId).value;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copiado!'; btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = boxId.includes('analise') ? '📋 Copiar análise completa' : '📋 Copiar mapa'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ─── Parse response ───────────────────────────────────────────────────────────
+function parseStep1(text) {
+  const m = text.match(/<MAPA_VISUAL>([\s\S]*?)<\/MAPA_VISUAL>/);
+  const t = text.match(/<TRANSCRICAO>([\s\S]*?)<\/TRANSCRICAO>/);
+  return {
+    mapa: m ? m[1].trim() : text,
+    trans: t ? t[1].trim() : ''
+  };
+}
+
+// ─── Step 1 ───────────────────────────────────────────────────────────────────
+async function step1Submit() {
+  hideErr(1);
+  const tema = document.getElementById('tema').value.trim();
+  if (!tema)    { showErr(1,'Informe o tema da redação.'); return; }
+  if (!S.foto)  { showErr(1,'Selecione ou tire uma foto da redação.'); return; }
+
+  S.tema   = tema;
+  S.rubrica = document.querySelector('input[name="rubrica"]:checked').value;
+
+  const fd = new FormData();
+  fd.append('foto', S.foto);
+  fd.append('tema', S.tema);
+  fd.append('rubrica', S.rubrica);
+
+  showLoad('Analisando a imagem…', 'O Claude está lendo a redação. Isso leva cerca de 20–40 segundos.');
+  try {
+    const res  = await fetch('/api/analisar-imagem', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail||'Erro ao analisar a imagem.');
+
+    const {mapa, trans} = parseStep1(data.resultado);
+    S.mapa  = mapa;
+    S.trans = trans;
+
+    document.getElementById('mapa-box').textContent  = mapa;
+    document.getElementById('trans-edit').value      = trans;
+    goTo(2);
+  } catch(e) {
+    showErr(1, e.message);
+  } finally {
+    hideLoad();
+  }
+}
+
+// ─── Step 2 ───────────────────────────────────────────────────────────────────
+async function step2Submit() {
+  hideErr(2);
+  const trans = document.getElementById('trans-edit').value.trim();
+  if (!trans) { showErr(2,'A transcrição não pode estar vazia.'); return; }
+  S.trans = trans;
+
+  const fd = new FormData();
+  fd.append('mapa_visual', S.mapa);
+  fd.append('transcricao', S.trans);
+  fd.append('tema',        S.tema);
+  fd.append('rubrica',     S.rubrica);
+
+  showLoad('Analisando as competências…','O Claude está aplicando a rubrica. Isso leva cerca de 20–40 segundos.');
+  try {
+    const res  = await fetch('/api/analisar-competencias', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail||'Erro ao analisar as competências.');
+
+    S.analise = data.resultado;
+    document.getElementById('analise-box').textContent = data.resultado;
+
+    // Prepare feedback section
+    document.getElementById('fb-generate').classList.remove('hidden');
+    document.getElementById('fb-result').classList.add('hidden');
+
+    // Prepare WhatsApp area
+    if (S.student && S.student.telefone) {
+      document.getElementById('wa-nome').textContent    = S.student.nome;
+      document.getElementById('wa-tel-fmt').textContent = fmtTel(S.student.telefone);
+      document.getElementById('wa-section').classList.remove('hidden');
+    } else {
+      document.getElementById('wa-section').classList.add('hidden');
+    }
+
+    goTo(3);
+  } catch(e) {
+    showErr(2, e.message);
+  } finally {
+    hideLoad();
+  }
+}
+
+// ─── Feedback ─────────────────────────────────────────────────────────────────
+async function generateFeedback() {
+  hideErr(3);
+  const fd = new FormData();
+  fd.append('relatorio',  S.analise);
+  fd.append('nome_aluno', S.student ? S.student.nome : '');
+
+  showLoad('Gerando feedback…','Criando uma mensagem encorajadora para a aluna.');
+  try {
+    const res  = await fetch('/api/gerar-feedback', {method:'POST', body:fd});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail||'Erro ao gerar feedback.');
+
+    document.getElementById('fb-text').value = data.feedback;
+    document.getElementById('fb-generate').classList.add('hidden');
+    document.getElementById('fb-result').classList.remove('hidden');
+  } catch(e) {
+    showErr(3, e.message);
+  } finally {
+    hideLoad();
+  }
+}
+
+async function regenerateFeedback() {
+  document.getElementById('fb-generate').classList.remove('hidden');
+  document.getElementById('fb-result').classList.add('hidden');
+  await generateFeedback();
+}
+
+// ─── WhatsApp ─────────────────────────────────────────────────────────────────
+function prepareWa(event) {
+  if (!S.student || !S.student.telefone) {
+    event.preventDefault();
+    showErr(3,'Nenhuma aluna selecionada. Volte ao Passo 1 e selecione uma aluna.');
+    return;
+  }
+  const phone = waTel(S.student.telefone);
+  const text  = document.getElementById('fb-text').value;
+  document.getElementById('btn-wa').href =
+    `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function novaCorrecao() {
+  document.getElementById('foto-input').value = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  const drop = document.getElementById('photo-drop');
+  drop.classList.remove('has-file');
+  drop.querySelector('.photo-drop-text').textContent = 'Tirar foto ou escolher da galeria';
+  drop.querySelector('.photo-drop-hint').textContent  = 'Toque para abrir';
+  S.foto = null; S.mapa = ''; S.trans = ''; S.analise = '';
+  goTo(1);
+}
+</script>
+</body>
+</html>

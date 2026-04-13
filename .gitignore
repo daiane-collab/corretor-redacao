@@ -1,0 +1,14 @@
+# Chave de API — nunca suba esse arquivo para o GitHub
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Sistema
+.DS_Store
+Thumbs.db
