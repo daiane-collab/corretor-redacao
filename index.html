@@ -329,18 +329,7 @@ async function callGemini(parts, tentativa = 1) {
   const data = await res.json();
   if (!res.ok) {
     const msg = data.error?.message || 'Erro na API do Gemini';
-    // Primeira tentativa: espera 30s e tenta mais uma vez
-    if (res.status === 429 && tentativa === 1) {
-      for (let s = 30; s > 0; s--) {
-        document.getElementById('overlay-msg').textContent = 'Serviço ocupado momentaneamente';
-        document.getElementById('overlay-sub').textContent = `Tentando novamente em ${s}s…`;
-        await new Promise(r => setTimeout(r, 1000));
-      }
-      document.getElementById('overlay-msg').textContent = 'Analisando a imagem…';
-      document.getElementById('overlay-sub').textContent = 'Aguarde, isso leva cerca de 20–40 segundos.';
-      return callGemini(parts, 2);
-    }
-    if (res.status === 429) throw new Error('O serviço está temporariamente ocupado. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
+    if (res.status === 429) throw new Error('A API está ocupada. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
     if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
     throw new Error(msg);
   }
