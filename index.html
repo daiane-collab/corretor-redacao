@@ -316,9 +316,9 @@
 
 <script>
 // ─── Gemini API ───────────────────────────────────────────────────────────────
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
-async function callGemini(parts) {
+async function callGemini(parts, tentativa = 1) {
   const key = localStorage.getItem('gemini_key');
   if (!key) throw new Error('Chave da API não configurada.');
   const res = await fetch(`${GEMINI_URL}?key=${key}`, {
@@ -329,6 +329,16 @@ async function callGemini(parts) {
   const data = await res.json();
   if (!res.ok) {
     const msg = data.error?.message || 'Erro na API do Gemini';
+    // Limite por minuto — aguardar e tentar de novo automaticamente
+    if (res.status === 429 && tentativa <= 3) {
+      const match = msg.match(/retry in (\d+(?:\.\d+)?)/i);
+      const espera = match ? Math.ceil(parseFloat(match[1])) + 3 : 20;
+      document.getElementById('overlay-sub').textContent =
+        `Limite temporário atingido. Tentando novamente em ${espera} segundos... (tentativa ${tentativa}/3)`;
+      await new Promise(r => setTimeout(r, espera * 1000));
+      return callGemini(parts, tentativa + 1);
+    }
+    if (res.status === 429) throw new Error('Limite de uso atingido. Aguarde alguns minutos e tente novamente.');
     if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
     throw new Error(msg);
   }
