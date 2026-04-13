@@ -349,7 +349,10 @@ function rubricaLabel(r) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('gemini_key')) goTo(1);
+  if (localStorage.getItem('gemini_key')) {
+    document.getElementById('s0').classList.remove('show');
+    goTo(1);
+  }
 });
 
 function saveKey() {
@@ -414,6 +417,7 @@ function previewFoto(input){const f=input.files[0];if(!f)return;S.foto=f;const r
 
 // ─── Navigation ───────────────────────────────────────────────────────────────
 function goTo(n){
+  document.getElementById('s0').classList.remove('show');
   [1,2,3].forEach(i=>{
     document.getElementById(`s${i}`).classList.toggle('show',i===n);
     const ind=document.getElementById(`ind-${i}`);
