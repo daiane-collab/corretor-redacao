@@ -321,7 +321,7 @@ async function callGemini(parts, tentativa = 1) {
   const data = await res.json();
   if (!res.ok) {
     const msg = data.error?.message || 'Erro na API do Gemini';
-    if (res.status === 429) throw new Error('A API está ocupada. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
+    if (res.status === 429) throw new Error(`[429] ${msg}`);
     if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
     throw new Error(msg);
   }
