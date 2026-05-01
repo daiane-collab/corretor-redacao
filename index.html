@@ -173,7 +173,8 @@
       <label class="field-label">Chave da API do Google Gemini:</label>
       <input type="password" id="api-key-input" placeholder="AIza...">
       <div class="key-hint">Obtenha gratuitamente em aistudio.google.com/apikey → Create API key</div>
-      <button class="btn btn-blue" onclick="saveKey()">✓ Salvar e começar</button>
+      <button class="btn btn-blue" id="btn-save-key" onclick="saveKey()">✓ Confirmar</button>
+      <div id="key-status" style="margin-top:8px;font-size:14px;min-height:20px"></div>
     </div>
   </div>
 
@@ -308,24 +309,60 @@
 
 <script>
 // ─── Gemini API ───────────────────────────────────────────────────────────────
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+// Modelos em ordem de preferência (free-tier primeiro)
+const GEMINI_MODELS = [
+  'gemini-2.0-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-flash-002',
+  'gemini-1.5-flash-001',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro-latest',
+];
 
-async function callGemini(parts, tentativa = 1) {
-  const key = localStorage.getItem('gemini_key');
-  if (!key) throw new Error('Chave da API não configurada.');
-  const res = await fetch(`${GEMINI_URL}?key=${key}`, {
+function getGeminiModel() {
+  return localStorage.getItem('gemini_model') || GEMINI_MODELS[0];
+}
+
+async function callGeminiModel(model, key, parts) {
+  const url = `${GEMINI_BASE}/${model}:generateContent?key=${key}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ contents: [{ parts }] })
   });
   const data = await res.json();
   if (!res.ok) {
-    const msg = data.error?.message || 'Erro na API do Gemini';
-    if (res.status === 429) throw new Error('A API está ocupada. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
-    if (res.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
-    throw new Error(msg);
+    const msg = data.error?.message || 'Erro na API';
+    const code = data.error?.code || res.status;
+    return { ok: false, status: res.status, msg, code, data };
   }
-  return data.candidates[0].content.parts[0].text;
+  return { ok: true, text: data.candidates[0].content.parts[0].text };
+}
+
+async function callGemini(parts) {
+  const key = localStorage.getItem('gemini_key');
+  if (!key) throw new Error('Chave da API não configurada.');
+  const model = getGeminiModel();
+  const result = await callGeminiModel(model, key, parts);
+  if (result.ok) return result.text;
+  const msg = result.msg;
+  if (result.status === 429) throw new Error('A API está ocupada. Aguarde 1–2 minutos e toque em "Analisar" novamente.');
+  if (result.status === 400 && msg.includes('API_KEY')) throw new Error('Chave da API inválida. Verifique a chave e tente novamente.');
+  throw new Error(msg);
+}
+
+async function detectBestModel(key, onProgress) {
+  const testParts = [{ text: 'Responda apenas: OK' }];
+  for (const model of GEMINI_MODELS) {
+    onProgress && onProgress(`Testando ${model}…`);
+    const result = await callGeminiModel(model, key, testParts);
+    if (result.ok) return model;
+    // Se for chave inválida, não adianta tentar os demais
+    if (result.status === 400 && result.msg.includes('API_KEY')) return null;
+  }
+  return null;
 }
 
 async function imageToBase64(file) {
@@ -364,24 +401,67 @@ function rubricaLabel(r) {
   return { enem: 'ENEM (0–200 por competência · total 1000 pts)', jovem_senador: 'Jovem Senador 2026 (0–2 · total 10 pts · mín. 20 linhas)', outra: 'Rubrica geral' }[r] || 'ENEM';
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  if (localStorage.getItem('gemini_key')) {
-    document.getElementById('s0').classList.remove('show');
-    goTo(1);
+window.addEventListener('DOMContentLoaded', async () => {
+  const key = localStorage.getItem('gemini_key');
+  if (key) {
+    // Se já tem chave mas modelo não foi detectado ainda, detecta agora
+    if (!localStorage.getItem('gemini_model')) {
+      const status = document.getElementById('key-status');
+      document.getElementById('api-key-input').value = key;
+      status.textContent = 'Detectando modelo compatível…';
+      status.style.color = 'var(--muted)';
+      const model = await detectBestModel(key, msg => { status.textContent = msg; });
+      if (model) {
+        localStorage.setItem('gemini_model', model);
+        status.textContent = `✓ Modelo: ${model}`;
+        status.style.color = 'var(--green)';
+        setTimeout(() => {
+          document.getElementById('s0').classList.remove('show');
+          goTo(1);
+        }, 600);
+      } else {
+        status.textContent = '✗ Não foi possível conectar. Verifique a chave.';
+        status.style.color = 'var(--red)';
+      }
+    } else {
+      document.getElementById('s0').classList.remove('show');
+      goTo(1);
+    }
   }
 });
 
-function saveKey() {
+async function saveKey() {
   const k = document.getElementById('api-key-input').value.trim();
   if (!k.startsWith('AIza')) { alert('A chave deve começar com "AIza...". Verifique e tente novamente.'); return; }
+  const btn = document.getElementById('btn-save-key');
+  const status = document.getElementById('key-status');
+  btn.disabled = true;
+  btn.textContent = 'Verificando…';
+  status.textContent = '';
+  const model = await detectBestModel(k, msg => { status.textContent = msg; });
+  btn.disabled = false;
+  btn.textContent = 'Confirmar';
+  if (!model) {
+    status.textContent = '✗ Nenhum modelo disponível para esta chave. Verifique se a chave é válida e tem acesso à API Gemini.';
+    status.style.color = 'var(--red)';
+    return;
+  }
   localStorage.setItem('gemini_key', k);
+  localStorage.setItem('gemini_model', model);
+  status.textContent = `✓ Modelo detectado: ${model}`;
+  status.style.color = 'var(--green)';
   history.replaceState(null, '', window.location.pathname);
-  document.getElementById('s0').classList.remove('show');
-  goTo(1);
+  setTimeout(() => {
+    document.getElementById('s0').classList.remove('show');
+    goTo(1);
+  }, 800);
 }
 
 function changeKey() {
+  localStorage.removeItem('gemini_model'); // força re-detecção
   document.getElementById('api-key-input').value = localStorage.getItem('gemini_key') || '';
+  document.getElementById('key-status').textContent = '';
+  document.getElementById('key-status').style.color = '';
   [1,2,3].forEach(i => document.getElementById(`s${i}`).classList.remove('show'));
   document.getElementById('s0').classList.add('show');
 }
