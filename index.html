@@ -576,8 +576,8 @@ async function step1Submit(){
   _processando = true;
   hideErr(1);
   const tema=document.getElementById('tema').value.trim();
-  if(!tema){showErr(1,'Informe o tema da redação.');return;}
-  if(!S.foto){showErr(1,'Selecione ou tire uma foto da redação.');return;}
+  if(!tema){showErr(1,'Informe o tema da redação.');_processando=false;return;}
+  if(!S.foto){showErr(1,'Selecione ou tire uma foto da redação.');_processando=false;return;}
   S.tema=tema; S.rubrica=document.querySelector('input[name="rubrica"]:checked').value;
 
   showLoad('Analisando a imagem…','O Gemini está lendo a redação. Isso leva cerca de 20–40 segundos.');
@@ -669,7 +669,7 @@ async function step2Submit(){
   _processando = true;
   hideErr(2);
   const trans=document.getElementById('trans-edit').value.trim();
-  if(!trans){showErr(2,'A transcrição não pode estar vazia.');return;}
+  if(!trans){showErr(2,'A transcrição não pode estar vazia.');_processando=false;return;}
   S.trans=trans;
 
   const rubricaPrompt=S.rubrica==='enem'?`## RUBRICA ENEM (0–200 por competência · total 1000 pts)
