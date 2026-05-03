@@ -717,7 +717,9 @@ C5 Proposta de intervenção respeitando a cidadania: 0=ausente/DH | 1=vaga | 2=
 TOTAL: C1 + C2 + C3 + C4 + C5 = [ ]/10 pts`:`## ANÁLISE QUALITATIVA GERAL
 Analise: norma culta, compreensão do tema, argumentação, coesão, conclusão/proposta.`;
 
-  const prompt=`Você é um corretor especializado em redações.
+  const prompt=`Você é um corretor de redações que auxilia professoras do ensino médio público.
+
+Linguagem obrigatória: clara, direta e acessível — como uma professora experiente explicando para outra. Sem jargão acadêmico desnecessário. Frases curtas. Cada desvio citado deve ter o trecho real do texto entre aspas.
 
 MAPA VISUAL CONFIRMADO:
 ${S.mapa}
@@ -732,34 +734,31 @@ ${rubricaPrompt}
 ## RELATÓRIO FINAL
 
 ══════════════════════════════════════════════════════
-CORREÇÃO COMPLETA — Tema: ${S.tema}
+CORREÇÃO — Tema: ${S.tema}
 ══════════════════════════════════════════════════════
 
 ⚠️ CONDIÇÕES ESPECIAIS
-[desclassificação / nota zero / tangenciamento / nenhuma — com justificativa]
+[desclassificação / nota zero / tangenciamento / nenhuma — explique em 1 linha]
 
 ──────────────────────────────────────────────────────
 COMPETÊNCIA [número] — [nome]
-Nível: [ ] | Pontuação: [ ] pts
+Pontuação: [ ] pts
 
-Desvios:
-• "[trecho exato]" → [problema]
-
-Justificativa: [fundamentada]
+O que foi bem: [1 frase]
+Problemas encontrados:
+• "[trecho exato]" → [o que está errado, em linguagem simples]
 
 [repetir para cada competência]
 ──────────────────────────────────────────────────────
 PONTUAÇÃO FINAL
-[tabela]
-⚠️ Esta pontuação é estimativa. A decisão final é da professora.
+[tabela resumida]
+⚠️ Estimativa — a decisão final é da professora.
 ──────────────────────────────────────────────────────
-PRIORIDADES DE FEEDBACK
-1. [sugestão concreta]
-2. [sugestão concreta]
-3. [sugestão concreta]
-══════════════════════════════════════════════════════
-
-Cite trechos reais do texto para fundamentar cada avaliação.`;
+3 PRIORIDADES PARA A ALUNA MELHORAR
+1. [ação concreta e simples]
+2. [ação concreta e simples]
+3. [ação concreta e simples]
+══════════════════════════════════════════════════════`;
 
   showLoad('Analisando as competências…','O Gemini está aplicando a rubrica. Isso leva cerca de 20–40 segundos.');
   try {
