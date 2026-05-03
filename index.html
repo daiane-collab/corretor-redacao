@@ -258,11 +258,11 @@
   <!-- ═══ PASSO 2 — Revisão ═══ -->
   <div class="section" id="s2">
     <div class="error-banner" id="err2"><div class="error-title">⚠️ Atenção</div><div class="error-text" id="err2-text"></div></div>
-    <div class="info">Revise o mapa visual e a transcrição. Edite a transcrição se necessário antes de confirmar.</div>
+    <div class="info">Revise e edite o mapa e a transcrição antes de confirmar.</div>
     <div class="card">
-      <div class="card-title">🗺️ Mapa de Evidências Visuais</div>
-      <div class="analysis-box" id="mapa-box"></div>
-      <button class="copy-btn" onclick="copyBox('mapa-box', this)">📋 Copiar mapa</button>
+      <div class="card-title">🗺️ Mapa de Evidências Visuais — edite se necessário</div>
+      <textarea id="mapa-box" style="font-family:'Courier New',monospace;font-size:13px;line-height:1.7;min-height:280px"></textarea>
+      <button class="copy-btn" onclick="copyTextarea('mapa-box', this)">📋 Copiar mapa</button>
     </div>
     <div class="card">
       <div class="card-title">📝 Transcrição — edite se necessário</div>
@@ -560,7 +560,8 @@ function showErr(n,msg){const b=document.getElementById(`err${n}`);document.getE
 function hideErr(n){document.getElementById(`err${n}`).classList.remove('show');}
 
 // ─── Copy ─────────────────────────────────────────────────────────────────────
-function copyBox(id,btn){const t=document.getElementById(id).textContent;navigator.clipboard.writeText(t).then(()=>{btn.textContent='✓ Copiado!';btn.classList.add('copied');setTimeout(()=>{btn.textContent=id.includes('analise')?'📋 Copiar análise completa':'📋 Copiar mapa';btn.classList.remove('copied');},2000);});}
+function copyBox(id,btn){const el=document.getElementById(id);const t=el.tagName==='TEXTAREA'?el.value:el.textContent;navigator.clipboard.writeText(t).then(()=>{btn.textContent='✓ Copiado!';btn.classList.add('copied');setTimeout(()=>{btn.textContent=id.includes('analise')?'📋 Copiar análise completa':'📋 Copiar mapa';btn.classList.remove('copied');},2000);});}
+function copyTextarea(id,btn){copyBox(id,btn);}
 
 // ─── Parse ────────────────────────────────────────────────────────────────────
 function parseStep1(text){
@@ -656,7 +657,7 @@ MAPA DE EVIDÊNCIAS VISUAIS
     const result=await callGemini([{text:prompt},{inline_data:{mime_type:mimeType,data:b64}}]);
     const{mapa,trans}=parseStep1(result);
     S.mapa=mapa; S.trans=trans;
-    document.getElementById('mapa-box').textContent=mapa;
+    document.getElementById('mapa-box').value=mapa;
     document.getElementById('trans-edit').value=trans;
     goTo(2);
   } catch(e){showErr(1,e.message);}
@@ -671,6 +672,7 @@ async function step2Submit(){
   const trans=document.getElementById('trans-edit').value.trim();
   if(!trans){showErr(2,'A transcrição não pode estar vazia.');_processando=false;return;}
   S.trans=trans;
+  S.mapa=document.getElementById('mapa-box').value.trim();
 
   const rubricaPrompt=S.rubrica==='enem'?`## RUBRICA ENEM (0–200 por competência · total 1000 pts)
 
