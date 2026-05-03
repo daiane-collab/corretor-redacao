@@ -354,18 +354,40 @@ async function callGemini(parts) {
 }
 
 async function detectBestModel(key, onProgress) {
-  const testParts = [{ text: 'Responda apenas: OK' }];
-  const erros = [];
-  for (const model of GEMINI_MODELS) {
-    onProgress && onProgress(`Testando ${model}…`);
-    const result = await callGeminiModel(model, key, testParts);
-    if (result.ok) return { model, erros };
-    const linha = `${model}: [${result.status}] ${result.msg.substring(0, 120)}`;
-    erros.push(linha);
-    // Se for chave inválida, não adianta tentar os demais
-    if (result.status === 400 && result.msg.includes('API_KEY')) return { model: null, erros };
+  onProgress && onProgress('Consultando modelos disponíveis na sua conta…');
+  try {
+    const res = await fetch(`${GEMINI_BASE}?key=${key}`);
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.error?.message || 'Erro na API';
+      if (res.status === 400 && msg.includes('API_KEY')) return { model: null, erros: ['Chave inválida: ' + msg] };
+      return { model: null, erros: [`Erro ao listar modelos: [${res.status}] ${msg}`] };
+    }
+    const available = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace('models/', ''));
+    if (!available.length) return { model: null, erros: ['Nenhum modelo disponível para esta chave.'] };
+    onProgress && onProgress(`${available.length} modelo(s) encontrado(s). Selecionando o melhor…`);
+    // Preferência: mais recente e eficiente primeiro
+    const priority = [
+      'gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro',
+      'gemini-2.0-flash-lite', 'gemini-2.0-flash',
+      'gemini-1.5-flash', 'gemini-1.5-pro',
+    ];
+    // Tentativa 1: correspondência exata
+    for (const pref of priority) {
+      if (available.includes(pref)) return { model: pref, erros: [] };
+    }
+    // Tentativa 2: começa com o nome preferido (ex: gemini-2.5-flash-preview-05-20)
+    for (const pref of priority) {
+      const found = available.find(m => m.startsWith(pref + '-') || m.startsWith(pref + '_'));
+      if (found) return { model: found, erros: [] };
+    }
+    // Fallback: primeiro da lista
+    return { model: available[0], erros: [] };
+  } catch (e) {
+    return { model: null, erros: ['Erro de rede: ' + e.message] };
   }
-  return { model: null, erros };
 }
 
 async function imageToBase64(file) {
