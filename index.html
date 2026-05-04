@@ -507,10 +507,11 @@ function loadCsv(input) {
   const r = new FileReader();
   r.onload = e => {
     const rows = e.target.result.trim().split('\n');
+    const sep = rows[0].includes(';') ? ';' : ',';
     const start = rows[0].toLowerCase().includes('nome') ? 1 : 0;
     S.students = [];
     for (let i=start;i<rows.length;i++) {
-      const p = rows[i].split(',');
+      const p = rows[i].split(sep);
       if (p.length>=2) {
         const nome=p[0].trim().replace(/^"|"$/g,'');
         const tel =p[1].trim().replace(/^"|"$/g,'').replace(/\D/g,'');
