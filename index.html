@@ -831,11 +831,30 @@ async function regenerateFeedback(){
   await generateFeedback();
 }
 
+function extractScore(analise, rubrica){
+  if(rubrica==='enem'){
+    const m=analise.match(/(\d{3,4})\s*\/\s*1000/);
+    return m?`${m[1]}/1000`:null;
+  }
+  if(rubrica==='jovem_senador'){
+    const m=analise.match(/(\d+(?:[.,]\d+)?)\s*\/\s*10\b/);
+    return m?`${m[1].replace(',','.')}/10`:null;
+  }
+  return null;
+}
+
 function prepareWa(event){
   if(!S.student||!S.student.telefone){event.preventDefault();showErr(3,'Nenhuma aluna selecionada.');return;}
   const phone=waTel(S.student.telefone);
-  const text=document.getElementById('fb-text').value;
-  document.getElementById('btn-wa').href=`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+  const fbText=document.getElementById('fb-text').value;
+  const nome=S.student.nome;
+  const abertura=`Oi, *${nome}*! Passando para te avisar que acabei de corrigir tua redação sobre *${S.tema}* e quero te parabenizar pelo teu empenho!\n\n`;
+  const score=extractScore(S.analise,S.rubrica);
+  const fechamento=score
+    ?`\n\nA pontuação ficou *${score}*. Parabéns e continue se dedicando!`
+    :`\n\nParabéns e continue se dedicando!`;
+  const fullText=abertura+fbText+fechamento;
+  document.getElementById('btn-wa').href=`https://wa.me/${phone}?text=${encodeURIComponent(fullText)}`;
 }
 
 // ─── Reset ────────────────────────────────────────────────────────────────────
