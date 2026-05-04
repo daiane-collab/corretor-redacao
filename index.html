@@ -509,20 +509,30 @@ function loadCsv(input) {
     const raw = e.target.result.replace(/^\uFEFF/, ''); // remove BOM
     const rows = raw.trim().split(/\r?\n/).filter(r => r.trim());
     const sep = rows[0].includes(';') ? ';' : ',';
-    const start = rows[0].toLowerCase().replace(/\W/g,'').includes('nome') ? 1 : 0;
+    // Detecta qual coluna tem telefone (só dígitos, 8–13 chars) e qual tem nome
+    function isTel(v){ const d=v.replace(/\D/g,''); return d.length>=8&&d.length<=13; }
+    function colIndexes(row){
+      const p=row.split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
+      let telIdx=-1,nomeIdx=-1;
+      p.forEach((v,i)=>{ if(isTel(v)&&telIdx===-1) telIdx=i; });
+      p.forEach((v,i)=>{ if(i!==telIdx&&v.length>1&&!isTel(v)&&nomeIdx===-1) nomeIdx=i; });
+      return{telIdx,nomeIdx};
+    }
+    // Determina índices usando a primeira linha de dados (pula cabeçalho se houver)
+    const hasHeader = rows[0].toLowerCase().replace(/\W/g,'').includes('nome')||rows[0].toLowerCase().includes('alun');
+    const start = hasHeader ? 1 : 0;
+    const {telIdx,nomeIdx} = start<rows.length ? colIndexes(rows[start]) : {telIdx:1,nomeIdx:0};
     S.students = [];
     for (let i=start;i<rows.length;i++) {
-      const p = rows[i].split(sep);
-      if (p.length>=2) {
-        const nome=p[0].trim().replace(/^"|"$/g,'').trim();
-        const tel =p[1].trim().replace(/^"|"$/g,'').replace(/\D/g,'');
-        if (nome&&tel) S.students.push({nome,telefone:tel});
-      }
+      const p=rows[i].split(sep).map(v=>v.trim().replace(/^"|"$/g,''));
+      const nome = nomeIdx>=0 ? p[nomeIdx]||'' : '';
+      const tel  = telIdx>=0  ? p[telIdx]?.replace(/\D/g,'')||'' : '';
+      if (nome&&tel) S.students.push({nome,telefone:tel});
     }
     const info=document.getElementById('csv-info');
     if (!S.students.length){
       const primeira = rows[0] || '(vazio)';
-      info.textContent=`⚠️ Nenhuma aluna encontrada. Separador detectado: "${sep}". Primeira linha: "${primeira.substring(0,60)}"`;
+      info.textContent=`⚠️ Nenhuma aluna encontrada. Separador: "${sep}". Primeira linha: "${primeira.substring(0,60)}"`;
       return;
     }
     info.textContent=`✓ ${S.students.length} aluna(s) carregada(s)`;
