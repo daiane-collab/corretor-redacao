@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Corretor de Redações</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <meta name="theme-color" content="#2563EB">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,6 +106,9 @@
     .btn-green:hover:not(:disabled) { background: var(--green-dark); }
     .btn-wa    { background: var(--whatsapp); color: white; font-size: 17px; }
     .btn-wa:hover { background: var(--whatsapp-dark); }
+    .btn-drive { background: #1a73e8; color: white; }
+    .btn-drive:hover:not(:disabled) { background: #1557b0; }
+    .btn-drive.saved { background: var(--green); }
     .btn-red   { background: var(--red);      color: white; }
     .btn-row { display: flex; gap: 12px; }
     .btn-row .btn { flex: 1; margin-bottom: 0; }
@@ -297,6 +301,7 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
             Enviar via WhatsApp
           </a>
+          <button class="btn btn-drive" id="btn-drive" onclick="saveToDrive()">☁️ Salvar foto no Drive</button>
           <button class="btn btn-green" style="margin-top:0" onclick="regenerateFeedback()">🔄 Regenerar Feedback</button>
         </div>
       </div>
@@ -857,6 +862,82 @@ function prepareWa(event){
   document.getElementById('btn-wa').href=`https://wa.me/${phone}?text=${encodeURIComponent(fullText)}`;
 }
 
+// ─── Google Drive ─────────────────────────────────────────────────────────────
+const DRIVE_CLIENT_ID = '141661474432-cf1q8bsucgmldhv19dvss3qsum6b8sme.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let _driveToken = null;
+
+function getGoogleToken(){
+  return new Promise((resolve, reject) => {
+    if (_driveToken && _driveToken.expires > Date.now()) { resolve(_driveToken.token); return; }
+    const client = google.accounts.oauth2.initTokenClient({
+      client_id: DRIVE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: resp => {
+        if (resp.error) { reject(new Error('Autenticação cancelada ou erro: ' + resp.error)); return; }
+        _driveToken = { token: resp.access_token, expires: Date.now() + (resp.expires_in - 60) * 1000 };
+        resolve(resp.access_token);
+      }
+    });
+    client.requestAccessToken();
+  });
+}
+
+async function findOrCreateFolder(token, name, parentId){
+  const q = `name='${name.replace("'","\\'")}' and mimeType='application/vnd.google-apps.folder' and '${parentId||'root'}' in parents and trashed=false`;
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await res.json();
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  const meta = { name, mimeType: 'application/vnd.google-apps.folder' };
+  if (parentId) meta.parents = [parentId];
+  const cres = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(meta)
+  });
+  const cdata = await cres.json();
+  if (!cres.ok) throw new Error(cdata.error?.message || 'Erro ao criar pasta.');
+  return cdata.id;
+}
+
+async function saveToDrive(){
+  if (!S.foto)    { showErr(3, 'Nenhuma foto para salvar.'); return; }
+  if (!S.student) { showErr(3, 'Nenhuma aluna selecionada.'); return; }
+  const btn = document.getElementById('btn-drive');
+  btn.disabled = true;
+  btn.textContent = '⏳ Salvando...';
+  try {
+    showLoad('Salvando no Drive…', 'Autenticando com o Google...');
+    const token = await getGoogleToken();
+    document.getElementById('overlay-sub').textContent = 'Criando pastas...';
+    const rootId = await findOrCreateFolder(token, 'Corretor de Redações', null);
+    const temaId = await findOrCreateFolder(token, S.tema, rootId);
+    document.getElementById('overlay-sub').textContent = 'Enviando foto...';
+    const b64 = await imageToBase64(S.foto);
+    const byteChars = atob(b64);
+    const byteArr = new Uint8Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+    const blob = new Blob([byteArr], { type: 'image/jpeg' });
+    const nomeSafe = S.student.nome.replace(/[\\/:*?"<>|]/g, '_');
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: `${nomeSafe}.jpg`, parents: [temaId] })], { type: 'application/json' }));
+    form.append('file', blob);
+    const upRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+    });
+    if (!upRes.ok) { const e = await upRes.json(); throw new Error(e.error?.message || 'Erro no upload.'); }
+    btn.textContent = '✓ Salvo no Drive!';
+    btn.classList.add('saved');
+    btn.disabled = false;
+  } catch(e) {
+    showErr(3, 'Erro ao salvar no Drive: ' + e.message);
+    btn.textContent = '☁️ Salvar foto no Drive';
+    btn.disabled = false;
+  } finally { hideLoad(); }
+}
+
 // ─── Reset ────────────────────────────────────────────────────────────────────
 function novaCorrecao(){
   document.getElementById('foto-input').value='';
@@ -866,6 +947,8 @@ function novaCorrecao(){
   d.querySelector('.photo-drop-text').textContent='Tirar foto ou escolher da galeria';
   d.querySelector('.photo-drop-hint').textContent='Toque para abrir';
   S.foto=null;S.mapa='';S.trans='';S.analise='';
+  const db=document.getElementById('btn-drive');
+  db.textContent='☁️ Salvar foto no Drive';db.classList.remove('saved');db.disabled=false;
   goTo(1);
 }
 </script>
