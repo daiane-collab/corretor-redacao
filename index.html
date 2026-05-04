@@ -506,20 +506,25 @@ function loadCsv(input) {
   const f = input.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = e => {
-    const rows = e.target.result.trim().split('\n');
+    const raw = e.target.result.replace(/^\uFEFF/, ''); // remove BOM
+    const rows = raw.trim().split(/\r?\n/).filter(r => r.trim());
     const sep = rows[0].includes(';') ? ';' : ',';
-    const start = rows[0].toLowerCase().includes('nome') ? 1 : 0;
+    const start = rows[0].toLowerCase().replace(/\W/g,'').includes('nome') ? 1 : 0;
     S.students = [];
     for (let i=start;i<rows.length;i++) {
       const p = rows[i].split(sep);
       if (p.length>=2) {
-        const nome=p[0].trim().replace(/^"|"$/g,'');
+        const nome=p[0].trim().replace(/^"|"$/g,'').trim();
         const tel =p[1].trim().replace(/^"|"$/g,'').replace(/\D/g,'');
         if (nome&&tel) S.students.push({nome,telefone:tel});
       }
     }
     const info=document.getElementById('csv-info');
-    if (!S.students.length){info.textContent='⚠️ Nenhuma aluna encontrada.';return;}
+    if (!S.students.length){
+      const primeira = rows[0] || '(vazio)';
+      info.textContent=`⚠️ Nenhuma aluna encontrada. Separador detectado: "${sep}". Primeira linha: "${primeira.substring(0,60)}"`;
+      return;
+    }
     info.textContent=`✓ ${S.students.length} aluna(s) carregada(s)`;
     const sel=document.getElementById('student-select');
     sel.innerHTML='<option value="">— Selecione —</option>';
